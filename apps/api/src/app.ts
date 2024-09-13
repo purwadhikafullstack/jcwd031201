@@ -11,6 +11,8 @@ import cors from 'cors';
 import { PORT } from './config';
 import { SampleRouter } from './routers/sample.router';
 import path from 'path';
+import { AuthRouter } from './routers/auth.router';
+import { ProfileRouter } from './routers/profile.router';
 
 export default class App {
   private app: Express;
@@ -54,12 +56,16 @@ export default class App {
 
   private routes(): void {
     const sampleRouter = new SampleRouter();
+    const authRouter = new AuthRouter();
+    const profileRouter = new ProfileRouter();
 
     this.app.get('/api', (req: Request, res: Response) => {
       res.send(`Hello, Purwadhika Student API!`);
     });
 
     this.app.use('/api/samples', sampleRouter.getRouter());
+    this.app.use('/api/auth', authRouter.getRouter());
+    this.app.use('/api/profile', profileRouter.getRouter());
   }
 
   public start(): void {
