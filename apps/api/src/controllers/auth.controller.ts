@@ -5,6 +5,7 @@ import { sendEmailVerify } from '../utils/verifyEmail';
 import { NextFunction, Request, Response } from 'express';
 import { v4 as uuid } from 'uuid';
 import { compareSync } from 'bcrypt';
+import { sendResetEmail } from '@/utils/emailResetPass';
 
 export class AuthController {
   async register(req: Request, res: Response, next: NextFunction) {
@@ -217,12 +218,128 @@ export class AuthController {
         result: {
           identificationId: findUser.identificationId,
           profilePicture: findProfile?.profilePicture,
+          username: findUser.username,
           token,
         },
       });
     } catch (error) {
       console.log(error);
       next({ success: false, message: 'Failed to login', error });
+    }
+  }
+
+  async keepLogin(req: Request, res: Response, next: NextFunction) {
+    try {
+      const findUser = await prisma.user.findUnique({
+        where: {
+          identificationId: res.locals.decrypt.identificationId,
+        },
+      });
+
+      if (!findUser) {
+        return res.status(404).send({
+          success: false,
+          message: 'Cannot find user',
+        });
+      }
+
+      const token = createToken(
+        {
+          identificationId: findUser.identificationId,
+          email: findUser.email,
+        },
+        '24h',
+      );
+
+      return res.status(200).send({
+        success: true,
+        result: {
+          identificationId: findUser.identificationId,
+          username: findUser.username,
+          token,
+        },
+      });
+    } catch (error) {
+      console.log(error);
+      next({
+        success: false,
+        message: 'Keep Login function failed',
+        error,
+      });
+    }
+  }
+
+  async forgotPassword(req: Request, res: Response, next: NextFunction) {
+    const { email } = req.body;
+    try {
+      const findEmail = await prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
+
+      if (!findEmail) {
+        return res.status(404).send({
+          success: false,
+          message: 'Cannot find your email',
+        });
+      }
+
+      const token = createToken(
+        {
+          email: findEmail.email,
+          identificationId: findEmail.identificationId,
+          username: findEmail.username,
+        },
+        '20m',
+      );
+
+      await sendResetEmail(findEmail.email, 'Password Reset', null, {
+        email: findEmail.email,
+        token,
+      });
+
+      return res.status(200).send({
+        success: true,
+        message: 'Account exist. Please reset your password',
+        result: token,
+      });
+    } catch (error) {
+      console.log(error);
+      next({ success: false, message: 'Forgot password function failed' });
+    }
+  }
+
+  async resetPassword(req: Request, res: Response, next: NextFunction) {
+    const { password } = req.body;
+    try {
+      await prisma.user.update({
+        data: {
+          password: await hashPassword(password),
+        },
+        where: {
+          identificationId: res.locals.decrypt.identificationId,
+        },
+      });
+      return res.status(200).send({
+        success: true,
+        message: 'Reset password success',
+      });
+    } catch (error) {
+      console.log(error);
+      next({ success: false, message: 'Cannot reset your password', error });
+    }
+  }
+
+  async logout(req: Request, res: Response, next: NextFunction) {
+    try {
+      return res.status(200).send({
+        success: true,
+        message: 'Logout success',
+      });
+    } catch (error) {
+      console.log(error);
+      next({ success: false, message: 'Failed to logout', error });
     }
   }
 }
