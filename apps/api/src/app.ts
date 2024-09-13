@@ -10,6 +10,7 @@ import express, {
 import cors from 'cors';
 import { PORT } from './config';
 import { SampleRouter } from './routers/sample.router';
+import path from 'path';
 
 export default class App {
   private app: Express;
@@ -25,6 +26,7 @@ export default class App {
     this.app.use(cors());
     this.app.use(json());
     this.app.use(urlencoded({ extended: true }));
+    this.app.use('/assets', express.static(path.join(__dirname, '../public')));
   }
 
   private handleError(): void {

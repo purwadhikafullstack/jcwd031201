@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,12 +7,145 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Sample {
-  id        Int      @id @default(autoincrement())
-  name      String
-  code      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model category {
+  id           Int       @id @unique(map: "id") @default(autoincrement())
+  categoryName String    @db.VarChar(255)
+  createdAt    DateTime  @default(now()) @db.Timestamp(0)
+  product      product[]
+}
 
-  @@map("samples") // if you want to use snake_case format
+model client {
+  id        Int       @id @unique(map: "id") @default(autoincrement())
+  name      String    @db.VarChar(255)
+  address   String    @db.VarChar(255)
+  phone     String    @db.VarChar(255)
+  email     String    @db.VarChar(255)
+  createdAt DateTime  @default(now()) @db.Timestamp(0)
+  invoice   invoice[]
+}
+
+model invoice {
+  id              Int                   @id @unique(map: "id") @default(autoincrement())
+  clientId        Int
+  invoiceCode     String                @db.VarChar(255)
+  invoiceDate     DateTime              @db.DateTime(0)
+  nextInvoiceDate DateTime              @db.DateTime(0)
+  invoiceStatus   invoice_invoiceStatus
+  totalAmount     Int
+  createdAt       DateTime              @default(now()) @db.Timestamp(0)
+  subTotal        Int
+  paymentOptId    Int
+  userId          Int
+  client          client                @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Invoice_fk1")
+  user            user                  @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Invoice_fk2")
+  paymentoptions  paymentoptions        @relation(fields: [paymentOptId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Invoice_fk3")
+  invoicedetail   invoicedetail[]
+
+  @@index([clientId], map: "Invoice_fk1")
+  @@index([userId], map: "Invoice_fk2")
+  @@index([paymentOptId], map: "Invoice_fk3")
+}
+
+model invoicedetail {
+  id         Int      @id @unique(map: "id") @default(autoincrement())
+  productId  Int
+  invoiceId  Int
+  qty        Int
+  priceUnit  Int
+  priceTotal Int
+  createdAt  DateTime @default(now()) @db.Timestamp(0)
+  product    product  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "InvoiceDetail_fk1")
+  invoice    invoice  @relation(fields: [invoiceId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "InvoiceDetail_fk2")
+
+  @@index([productId], map: "InvoiceDetail_fk1")
+  @@index([invoiceId], map: "InvoiceDetail_fk2")
+}
+
+model paymentdetails {
+  id             Int            @id @unique(map: "id") @default(autoincrement())
+  userId         Int
+  paymentOptId   Int
+  bankAccount    String         @db.VarChar(255)
+  accountNumber  String         @db.VarChar(255)
+  accountName    String         @db.VarChar(255)
+  createdAt      DateTime       @default(now()) @db.Timestamp(0)
+  user           user           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "PaymentDeatails_fk2")
+  paymentoptions paymentoptions @relation(fields: [paymentOptId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "PaymentDetails_fk1")
+
+  @@index([userId], map: "PaymentDeatails_fk2_idx")
+  @@index([paymentOptId], map: "PaymentDetails_fk1")
+}
+
+model paymentoptions {
+  id             Int                        @id @unique(map: "id") @default(autoincrement())
+  paymentType    paymentoptions_paymentType
+  createdAt      DateTime                   @default(now()) @db.Timestamp(0)
+  invoice        invoice[]
+  paymentdetails paymentdetails[]
+  userprofile    userprofile[]
+}
+
+model product {
+  id            Int             @id @unique(map: "id") @default(autoincrement())
+  userId        Int
+  productCode   String          @unique(map: "productCode") @db.VarChar(255)
+  name          String          @db.VarChar(255)
+  description   String          @db.Text
+  price         Int
+  isDeleted     Boolean         @default(false)
+  createdAt     DateTime        @default(now()) @db.Timestamp(0)
+  categoryId    Int
+  invoicedetail invoicedetail[]
+  user          user            @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Product_fk1")
+  category      category        @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Product_fk2")
+
+  @@index([userId], map: "Product_fk1")
+  @@index([categoryId], map: "Product_fk2")
+}
+
+model user {
+  id               Int              @id @unique(map: "id") @default(autoincrement())
+  identificationId String           @unique(map: "identificationId")
+  username         String           @unique(map: "username") @db.VarChar(255)
+  email            String           @unique(map: "email") @db.VarChar(255)
+  password         String           @db.VarChar(255)
+  createdAt        DateTime         @default(now()) @db.Timestamp(0)
+  isBlocked        Boolean          @default(false)
+  lastLoginAttempt DateTime         @default(now()) @db.Timestamp(0)
+  loginAttempt     Int              @default(0)
+  isVerified       Boolean          @default(false)
+  invoice          invoice[]
+  paymentdetails   paymentdetails[]
+  product          product[]
+  userprofile      userprofile[]
+}
+
+model userprofile {
+  id             Int            @id @unique(map: "id") @default(autoincrement())
+  userId         Int
+  firstName      String?        @db.VarChar(255)
+  lastName       String?        @db.VarChar(255)
+  companyName    String?        @db.VarChar(255)
+  profilePicture String?        @db.VarChar(255)
+  address        String?        @db.VarChar(255)
+  phone          String?        @db.VarChar(255)
+  createdAt      DateTime       @default(now()) @db.Timestamp(0)
+  isCreated      Boolean        @default(false)
+  paymentOptId   Int
+  user           user           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "UserProfile_fk1")
+  paymentoptions paymentoptions @relation(fields: [paymentOptId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "UserProfile_fk2")
+
+  @@index([userId], map: "UserProfile_fk1")
+  @@index([paymentOptId], map: "UserProfile_fk2")
+}
+
+enum paymentoptions_paymentType {
+  CASH
+  BANK_TRANSFER
+}
+
+enum invoice_invoiceStatus {
+  PAID
+  UNPAID
+  OVERDUE
 }
