@@ -9,9 +9,6 @@ export const createProfileValidation = [
     .withMessage('Please provide your company name'),
   body('address').notEmpty().withMessage('Please provide your address'),
   body('phone').notEmpty().withMessage('Please provide your phone'),
-  body('paymentType')
-    .notEmpty()
-    .withMessage('Please provide your payment type'),
   (req: Request, res: Response, next: NextFunction) => {
     const errorValidator = validationResult(req);
     if (!errorValidator.isEmpty()) {

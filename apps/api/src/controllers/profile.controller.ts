@@ -31,18 +31,18 @@ export class ProfileController {
         });
       }
 
-      const findPaymentType = await prisma.paymentoptions.findFirst({
-        where: {
-          paymentType,
-        },
-      });
+      // const findPaymentType = await prisma.paymentoptions.findFirst({
+      //   where: {
+      //     paymentType,
+      //   },
+      // });
 
-      if (!findPaymentType) {
-        return res.status(404).send({
-          success: false,
-          message: 'Cannot find payment options',
-        });
-      }
+      // if (!findPaymentType) {
+      //   return res.status(404).send({
+      //     success: false,
+      //     message: 'Cannot find payment options',
+      //   });
+      // }
 
       const createProfile = await prisma.userprofile.create({
         data: {
@@ -52,27 +52,27 @@ export class ProfileController {
           companyName,
           address,
           phone,
-          paymentOptId: findPaymentType.id,
           profilePicture: `/assets/profile/${req.file?.filename}`,
           isCreated: true,
         },
       });
 
-      if (findPaymentType.paymentType === 'BANK_TRANSFER') {
-        await prisma.paymentdetails.create({
-          data: {
-            userId: findUser.id,
-            bankAccount,
-            accountName,
-            accountNumber,
-            paymentOptId: findPaymentType.id,
-          },
-        });
-      }
+      // if (findPaymentType.paymentType === 'BANK_TRANSFER') {
+      //   await prisma.paymentdetails.create({
+      //     data: {
+      //       userId: findUser.id,
+      //       bankAccount,
+      //       accountName,
+      //       accountNumber,
+      //       paymentOptId: findPaymentType.id,
+      //     },
+      //   });
+      // }
 
       return res.status(200).send({
         success: true,
         message: 'Create profile success',
+        result: createProfile,
       });
     } catch (error) {
       console.log(error);
@@ -105,18 +105,18 @@ export class ProfileController {
         },
       });
 
-      const findPaymentDetails = await prisma.paymentdetails.findFirst({
-        where: {
-          userId: findUser.id,
-        },
-      });
+      // const findPaymentDetails = await prisma.paymentdetails.findFirst({
+      //   where: {
+      //     userId: findUser.id,
+      //   },
+      // });
 
       return res.status(200).send({
         success: true,
         message: 'Get profile success',
         result: {
           findProfile,
-          findPaymentDetails,
+          // findPaymentDetails,
         },
       });
     } catch (error) {
@@ -170,15 +170,22 @@ export class ProfileController {
         }
       }
 
-      const findPaymentType = await prisma.paymentoptions.findFirst({
-        where: { paymentType },
-      });
+      // const findPaymentType = await prisma.paymentoptions.findFirst({
+      //   where: { paymentType },
+      // });
 
-      const findPaymentDetails = await prisma.paymentdetails.findFirst({
-        where: {
-          userId: findUser.id,
-        },
-      });
+      // if (!findPaymentType) {
+      //   return res.status(404).send({
+      //     success: false,
+      //     message: 'Cannot find payment type',
+      //   });
+      // }
+
+      // const findPaymentDetails = await prisma.paymentdetails.findFirst({
+      //   where: {
+      //     userId: findUser.id,
+      //   },
+      // });
 
       const updatedProfile = await prisma.userprofile.update({
         where: {
@@ -190,36 +197,52 @@ export class ProfileController {
           lastName: lastName ? lastName : findProfile?.lastName,
           phone: phone ? phone : findProfile?.lastName,
           companyName: companyName ? companyName : findProfile?.companyName,
-          paymentOptId: paymentType
-            ? findPaymentType?.id
-            : findProfile?.paymentOptId,
+          // paymentOptId: paymentType
+          //   ? findPaymentType?.id
+          //   : findProfile?.paymentOptId,
           profilePicture: req.file
             ? `/assets/profile/${req.file.filename}`
             : findProfile?.profilePicture,
         },
       });
 
-      if (paymentType === 'BANK_TRANSFER') {
-        await prisma.paymentdetails.update({
-          data: {
-            accountName: accountName
-              ? accountName
-              : findPaymentDetails?.accountName,
-            accountNumber: accountNumber
-              ? accountNumber
-              : findPaymentDetails?.accountNumber,
-            bankAccount: bankAccount
-              ? bankAccount
-              : findPaymentDetails?.bankAccount,
-          },
-          where: {
-            id: findPaymentDetails?.id,
-          },
-        });
-      }
+      // if (paymentType === 'BANK_TRANSFER' && findPaymentDetails) {
+      //   await prisma.paymentdetails.update({
+      //     data: {
+      //       accountName: accountName
+      //         ? accountName
+      //         : findPaymentDetails?.accountName,
+      //       accountNumber: accountNumber
+      //         ? accountNumber
+      //         : findPaymentDetails?.accountNumber,
+      //       bankAccount: bankAccount
+      //         ? bankAccount
+      //         : findPaymentDetails?.bankAccount,
+      //     },
+      //     where: {
+      //       id: findPaymentDetails?.id,
+      //     },
+      //   });
+      // } else {
+      //   await prisma.paymentdetails.create({
+      //     data: {
+      //       userId: findUser.id,
+      //       paymentOptId: findPaymentType?.id,
+      //       accountName: accountName
+      //         ? accountName
+      //         : findPaymentDetails?.accountName,
+      //       accountNumber: accountNumber
+      //         ? accountNumber
+      //         : findPaymentDetails?.accountNumber,
+      //       bankAccount: bankAccount
+      //         ? bankAccount
+      //         : findPaymentDetails?.bankAccount,
+      //     },
+      //   });
+      // }
 
       return res.status(200).send({
-        success: false,
+        success: true,
         message: 'Update profile success',
         result: updatedProfile,
       });

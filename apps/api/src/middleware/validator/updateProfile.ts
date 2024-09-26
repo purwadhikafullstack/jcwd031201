@@ -7,7 +7,6 @@ export const updateProfileValidation = [
   body('address').notEmpty().withMessage('Address cannot be empty'),
   body('phone').notEmpty().withMessage('Phone cannot be empty'),
   body('companyName').notEmpty().withMessage('Company name cannot be empty'),
-  body('paymentType').notEmpty().withMessage('Please select payment type'),
   (req: Request, res: Response, next: NextFunction) => {
     const errorValidator = validationResult(req);
     if (!errorValidator.isEmpty()) {

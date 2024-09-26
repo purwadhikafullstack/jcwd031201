@@ -64,7 +64,12 @@ export class AuthController {
       return res.status(200).send({
         success: true,
         message: 'Create account success',
-        result: { token, identificationId: user.identificationId },
+        result: {
+          token,
+          identificationId: user.identificationId,
+          email: user.email,
+          username: user.username,
+        },
       });
     } catch (error) {
       console.log(error);
@@ -217,6 +222,7 @@ export class AuthController {
         message: 'Login success',
         result: {
           identificationId: findUser.identificationId,
+          email: findUser.email,
           profilePicture: findProfile?.profilePicture,
           username: findUser.username,
           token,
@@ -256,6 +262,7 @@ export class AuthController {
         result: {
           identificationId: findUser.identificationId,
           username: findUser.username,
+          email: findUser.email,
           token,
         },
       });
@@ -313,6 +320,12 @@ export class AuthController {
   async resetPassword(req: Request, res: Response, next: NextFunction) {
     const { password } = req.body;
     try {
+      if (!res.locals.decrypt.identificationId) {
+        return res.status(404).send({
+          success: false,
+          message: 'Cannot find user',
+        });
+      }
       await prisma.user.update({
         data: {
           password: await hashPassword(password),

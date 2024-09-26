@@ -3,7 +3,7 @@ import { body, validationResult } from 'express-validator';
 
 export const forgotPassValidation = [
   body('email')
-    .isEmpty()
+    .notEmpty()
     .withMessage('Please provide your email')
     .isEmail()
     .withMessage('Format email is wrong'),
