@@ -1,119 +1,124 @@
 generator client {
   provider = "prisma-client-js"
+  output   = "./generated/client"
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model category {
-  id           Int       @id @unique(map: "id") @default(autoincrement())
+  id           Int       @id @default(autoincrement())
   categoryName String    @db.VarChar(255)
   createdAt    DateTime  @default(now()) @db.Timestamp(0)
   product      product[]
 }
 
 model client {
-  id        Int       @id @unique(map: "id") @default(autoincrement())
-  name      String    @db.VarChar(255)
-  address   String    @db.VarChar(255)
-  phone     String    @db.VarChar(255)
-  email     String    @db.VarChar(255)
-  createdAt DateTime  @default(now()) @db.Timestamp(0)
-  invoice   invoice[]
+  id         Int       @id @default(autoincrement())
+  name       String    @db.VarChar(255)
+  address    String    @db.VarChar(255)
+  phone      String    @db.VarChar(255)
+  email      String    @db.VarChar(255)
+  createdAt  DateTime  @default(now()) @db.Timestamp(0)
+  clientCode String    @unique @db.VarChar(255)
+  userId     Int       
+  user       user      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  invoice    invoice[]
 }
 
 model invoice {
-  id              Int                   @id @unique(map: "id") @default(autoincrement())
+  id              Int                   @id @default(autoincrement())
   clientId        Int
-  invoiceCode     String                @db.VarChar(255)
-  invoiceDate     DateTime              @db.DateTime(0)
-  nextInvoiceDate DateTime              @db.DateTime(0)
+  invoiceCode     String                @unique @db.VarChar(255)
+  invoiceDate     DateTime
+  nextInvoiceDate DateTime
   invoiceStatus   invoice_invoiceStatus
   totalAmount     Int
   createdAt       DateTime              @default(now()) @db.Timestamp(0)
   subTotal        Int
   paymentOptId    Int
   userId          Int
-  client          client                @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Invoice_fk1")
-  user            user                  @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Invoice_fk2")
-  paymentoptions  paymentoptions        @relation(fields: [paymentOptId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Invoice_fk3")
+  client          client                @relation(fields: [clientId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  paymentoptions  paymentoptions        @relation(fields: [paymentOptId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user            user                  @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   invoicedetail   invoicedetail[]
 
-  @@index([clientId], map: "Invoice_fk1")
-  @@index([userId], map: "Invoice_fk2")
-  @@index([paymentOptId], map: "Invoice_fk3")
+  @@index([clientId])
+  @@index([userId])
+  @@index([paymentOptId])
 }
 
 model invoicedetail {
-  id         Int      @id @unique(map: "id") @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   productId  Int
   invoiceId  Int
   qty        Int
   priceUnit  Int
   priceTotal Int
   createdAt  DateTime @default(now()) @db.Timestamp(0)
-  product    product  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "InvoiceDetail_fk1")
-  invoice    invoice  @relation(fields: [invoiceId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "InvoiceDetail_fk2")
+  invoice    invoice  @relation(fields: [invoiceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product    product  @relation(fields: [productId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([productId], map: "InvoiceDetail_fk1")
-  @@index([invoiceId], map: "InvoiceDetail_fk2")
+  @@index([productId])
+  @@index([invoiceId])
 }
 
 model paymentdetails {
-  id             Int            @id @unique(map: "id") @default(autoincrement())
+  id             Int            @id @default(autoincrement())
   userId         Int
   paymentOptId   Int
   bankAccount    String         @db.VarChar(255)
   accountNumber  String         @db.VarChar(255)
   accountName    String         @db.VarChar(255)
   createdAt      DateTime       @default(now()) @db.Timestamp(0)
-  user           user           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "PaymentDeatails_fk2")
-  paymentoptions paymentoptions @relation(fields: [paymentOptId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "PaymentDetails_fk1")
+  paymentoptions paymentoptions @relation(fields: [paymentOptId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user           user           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([userId], map: "PaymentDeatails_fk2_idx")
-  @@index([paymentOptId], map: "PaymentDetails_fk1")
+  @@index([userId])
+  @@index([paymentOptId])
 }
 
 model paymentoptions {
-  id             Int                        @id @unique(map: "id") @default(autoincrement())
+  id             Int                        @id @default(autoincrement())
   paymentType    paymentoptions_paymentType
   createdAt      DateTime                   @default(now()) @db.Timestamp(0)
   invoice        invoice[]
   paymentdetails paymentdetails[]
-  userprofile    userprofile[]
 }
 
 model product {
-  id            Int             @id @unique(map: "id") @default(autoincrement())
+  id            Int             @id @default(autoincrement())
   userId        Int
-  productCode   String          @unique(map: "productCode") @db.VarChar(255)
+  productCode   String          @unique @db.VarChar(255)
   name          String          @db.VarChar(255)
-  description   String          @db.Text
+  description   String
   price         Int
   isDeleted     Boolean         @default(false)
   createdAt     DateTime        @default(now()) @db.Timestamp(0)
   categoryId    Int
   invoicedetail invoicedetail[]
-  user          user            @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Product_fk1")
-  category      category        @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "Product_fk2")
+  category      category        @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user          user            @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([userId], map: "Product_fk1")
-  @@index([categoryId], map: "Product_fk2")
+  @@index([userId])
+  @@index([categoryId])
 }
 
 model user {
-  id               Int              @id @unique(map: "id") @default(autoincrement())
-  identificationId String           @unique(map: "identificationId")
-  username         String           @unique(map: "username") @db.VarChar(255)
-  email            String           @unique(map: "email") @db.VarChar(255)
+  id               Int              @id @default(autoincrement())
+  identificationId String           @unique
+  username         String           @unique @db.VarChar(255)
+  email            String           @unique @db.VarChar(255)
   password         String           @db.VarChar(255)
   createdAt        DateTime         @default(now()) @db.Timestamp(0)
   isBlocked        Boolean          @default(false)
   lastLoginAttempt DateTime         @default(now()) @db.Timestamp(0)
   loginAttempt     Int              @default(0)
   isVerified       Boolean          @default(false)
+  client           client[]
   invoice          invoice[]
   paymentdetails   paymentdetails[]
   product          product[]
@@ -121,7 +126,7 @@ model user {
 }
 
 model userprofile {
-  id             Int            @id @unique(map: "id") @default(autoincrement())
+  id             Int            @id @default(autoincrement())
   userId         Int
   firstName      String?        @db.VarChar(255)
   lastName       String?        @db.VarChar(255)
@@ -131,12 +136,9 @@ model userprofile {
   phone          String?        @db.VarChar(255)
   createdAt      DateTime       @default(now()) @db.Timestamp(0)
   isCreated      Boolean        @default(false)
-  paymentOptId   Int
-  user           user           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "UserProfile_fk1")
-  paymentoptions paymentoptions @relation(fields: [paymentOptId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "UserProfile_fk2")
+  user           user           @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([userId], map: "UserProfile_fk1")
-  @@index([paymentOptId], map: "UserProfile_fk2")
+  @@index([userId])
 }
 
 enum paymentoptions_paymentType {

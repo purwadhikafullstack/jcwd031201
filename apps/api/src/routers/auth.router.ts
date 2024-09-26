@@ -11,8 +11,8 @@ export class AuthRouter {
   private authController: AuthController;
 
   constructor() {
-    this.authController = new AuthController();
     this.router = Router();
+    this.authController = new AuthController();
     this.initializeRoutes();
   }
 
@@ -24,6 +24,7 @@ export class AuthRouter {
     );
 
     this.router.post('/login', loginValidation, this.authController.login);
+    this.router.patch('/verify', verifyToken, this.authController.verifyEmail);
 
     this.router.get('/keeplogin', verifyToken, this.authController.keepLogin);
     this.router.post(

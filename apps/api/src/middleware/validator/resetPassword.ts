@@ -3,7 +3,7 @@ import { body, validationResult } from 'express-validator';
 
 export const resetPassValidation = [
   body('password')
-    .isEmpty()
+    .notEmpty()
     .withMessage('Please provide your password')
     .isStrongPassword({
       minLength: 8,
@@ -16,7 +16,7 @@ export const resetPassValidation = [
       'Password must contain minimum 8 characters, at least one uppercase, one lowercase, one number, one symbol',
     ),
   body('confirmPassword')
-    .isEmpty()
+    .notEmpty()
     .withMessage('Please confirm your password')
     .custom((value, { req }) => {
       if (value !== req.body.password) {
