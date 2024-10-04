@@ -44,6 +44,7 @@ const Profile: React.FunctionComponent<IProfileProps> = (props) => {
     companyName: '',
     address: '',
     phone: '',
+    image: '',
   });
   const { user } = React.useContext(UserContext);
   const router = useRouter();
@@ -90,11 +91,35 @@ const Profile: React.FunctionComponent<IProfileProps> = (props) => {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
+      const fileSizeMB = file.size / 1024 / 1024; // Convert size to MB
+      const fileType = file.type;
+
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+      if (!allowedTypes.includes(fileType)) {
+        setError((prev) => ({
+          ...prev,
+          image: 'Invalid file type. Please upload a JPEG, JPG, or PNG file.',
+        }));
+        return;
+      }
+
+      if (fileSizeMB > 1) {
+        setError((prev) => ({
+          ...prev,
+          image: 'File size exceeds 1MB. Please upload a smaller file.',
+        }));
+        return;
+      }
+
+      setError((prev) => ({ ...prev, image: '' })); // Clear error
+
+      // Only update the image URL after validations are passed
       const url = URL.createObjectURL(file);
       setImageFile(file);
       setImageUrl(url);
     }
   };
+
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const triggerFileInput = () => {
@@ -106,7 +131,7 @@ const Profile: React.FunctionComponent<IProfileProps> = (props) => {
     setImageUrl('/27002.jpg');
   };
 
-  const { data: profile, isLoading, isError } = useProfile(token);
+  const { data: profile, isLoading, isError, refetch } = useProfile(token);
 
   const createProfile = useMutation({
     mutationFn: async () => {
@@ -129,11 +154,12 @@ const Profile: React.FunctionComponent<IProfileProps> = (props) => {
     onSuccess: (data) => {
       console.log(data);
       setIsCreated(data.result.isCreated);
-      toast('Create Profile Success');
-      router.replace('/user/profile');
+      setIsDialogOpen(false);
+      toast('Profile saved successfully', { onClose: () => refetch() });
     },
     onError: (error: any) => {
       console.log(error);
+      setIsDialogOpen(false);
       toast('Failed to Create Profile');
     },
   });
@@ -161,11 +187,13 @@ const Profile: React.FunctionComponent<IProfileProps> = (props) => {
     },
     onSuccess: (data) => {
       console.log(data);
+      setIsDialogOpen(false);
       setIsCreated(data.result.isCreated);
-      toast('Update Profile Success');
-      router.replace('/user/profile');
+      toast('Profile updated successfully', { onClose: () => refetch() });
+      // router.replace('/user/profile');
     },
     onError: (error: any) => {
+      setIsDialogOpen(false);
       console.log(error);
       toast('Failed to Update Profile');
     },
@@ -203,29 +231,57 @@ const Profile: React.FunctionComponent<IProfileProps> = (props) => {
       setUsername(user.username);
     }
     if (profile) {
-      setFirstName(profile.result.findProfile.firstName || '');
-      setLastName(profile.result.findProfile.lastName || '');
-      setCompanyName(profile.result.findProfile.companyName || '');
-      setAddress(profile.result.findProfile.address || '');
-      setPhone(profile.result.findProfile.phone || '');
-      setIsCreated(profile.result.findProfile.isCreated || false);
-      setImageUrl(
-        'http://localhost:8000' + profile.result.findProfile.profilePicture ||
-          '/27002.jpg',
-      );
+      setFirstName(profile.result.findProfile?.firstName || '');
+      setLastName(profile.result.findProfile?.lastName || '');
+      setCompanyName(profile.result.findProfile?.companyName || '');
+      setAddress(profile.result.findProfile?.address || '');
+      setPhone(profile.result.findProfile?.phone || '');
+      setIsCreated(profile.result.findProfile?.isCreated || false);
+      if (profile.result.findProfile?.profilePicture !== null) {
+        setImageUrl(
+          'http://localhost:8000' +
+            profile.result.findProfile?.profilePicture || '/27002.jpg',
+        );
+      }
     }
   }, [user, profile]);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center w-full h-screen bg-gray-100">
+        <div className="flex flex-col justify-center items-center">
+          <div className="loader mb-4 border-t-4 border-b-4 border-blue-500 rounded-full w-16 h-16 animate-spin"></div>
+          <div className="text-4xl font-semibold text-gray-700">
+            Loading Profile...
+          </div>
+        </div>
+
+        <style jsx>{`
+          .loader {
+            border-top-color: transparent;
+            border-right-color: transparent;
+            border-radius: 50%;
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full">
       <ToastContainer />
-      <div className="flex mt-28 mb-10 mx-10 rounded-xl border-slate-500 border border-solid">
+      <div className="flex flex-col md:flex-row mt-28 mb-10 mx-5 md:mx-10 rounded-xl border-slate-500 border border-solid">
         <Sidebar />
         <div className="flex-1">
           <div className="w-full flex flex-col">
-            <div className="w-full flex justify-between items-center border-b border-solid border-b-black p-5">
+            <div className="w-full flex md:justify-between md:flex-row flex-col gap-5 items-center border-b border-solid border-b-black p-5">
               <div className="flex flex-col">
-                <p className="text-2xl font-bold">Profile</p>
-                <p className="text-slate-300">This is your profile</p>
+                <p className="text-2xl md:text-start text-center font-bold">
+                  Profile
+                </p>
+                <p className="text-slate-300 md:text-start text-center">
+                  This is your profile
+                </p>
               </div>
               <div className="flex items-center gap-5">
                 <Button onClick={handleUndoChanges}>Undo Changes</Button>
@@ -242,7 +298,7 @@ const Profile: React.FunctionComponent<IProfileProps> = (props) => {
                         Are you sure you want to make changes to your profile?
                       </AlertDialogTitle>
                       <AlertDialogDescription>
-                        Make sure the informations are correct
+                        Make sure the information is correct
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -261,11 +317,11 @@ const Profile: React.FunctionComponent<IProfileProps> = (props) => {
                 </AlertDialog>
               </div>
             </div>
-            <div className="w-full flex flex-col gap-3 p-5">
-              <div className="w-full flex gap-5 items-center">
-                <div className="w-24 h-24 relative">
+            <div className="w-full flex flex-col md:gap-3 gap-5 p-5">
+              <div className="w-full flex md:flex-row flex-col gap-5 items-center">
+                <div className="w-16 h-16 sm:w-24 sm:h-24 relative">
                   <Image
-                    src={imageFile ? imageUrl : imageUrl}
+                    src={imageUrl ? imageUrl : '/27002.jpg'}
                     alt="avatar"
                     layout="fill"
                     objectFit="cover"
@@ -273,7 +329,7 @@ const Profile: React.FunctionComponent<IProfileProps> = (props) => {
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <p className="font-bold">Avatar</p>
+                  <p className="font-bold text-center md:text-start">Avatar</p>
                   <p>Upload image under 1 MB</p>
                 </div>
                 <div className="flex items-center gap-5">
@@ -293,10 +349,11 @@ const Profile: React.FunctionComponent<IProfileProps> = (props) => {
                   </Button>
                 </div>
               </div>
+              {error.image && <p className="text-red-500">{error.image}</p>}
               <div className="w-full flex flex-col gap-3">
                 <Label>Email Address</Label>
                 <Input
-                  className="w-1/2"
+                  className="w-full sm:w-1/2"
                   placeholder="Your email address"
                   type="text"
                   value={email}
@@ -306,7 +363,7 @@ const Profile: React.FunctionComponent<IProfileProps> = (props) => {
               <div className="w-full flex flex-col gap-3">
                 <Label>Username</Label>
                 <Input
-                  className="w-1/2"
+                  className="w-full sm:w-1/2"
                   placeholder="Your username"
                   type="text"
                   value={username}
@@ -316,20 +373,20 @@ const Profile: React.FunctionComponent<IProfileProps> = (props) => {
               <div className="w-full flex flex-col gap-3">
                 <Label>First Name</Label>
                 <Input
-                  className="w-1/2"
+                  className="w-full sm:w-1/2"
                   placeholder="Your first name"
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                 />
-                {error.firstname && (
+                {error.firstName && (
                   <p className="text-red-500">{error.firstName}</p>
                 )}
               </div>
               <div className="w-full flex flex-col gap-3">
                 <Label>Last Name</Label>
                 <Input
-                  className="w-1/2"
+                  className="w-full sm:w-1/2"
                   placeholder="Your last name"
                   type="text"
                   value={lastName}
@@ -340,41 +397,17 @@ const Profile: React.FunctionComponent<IProfileProps> = (props) => {
                 )}
               </div>
               <div className="w-full flex flex-col gap-3">
-                <Label>Company Name</Label>
+                <Label>Phone Number</Label>
                 <Input
-                  className="w-1/2"
-                  placeholder="Your company name"
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                />
-                {error.companyName && (
-                  <p className="text-red-500">{error.companyName}</p>
-                )}
-              </div>
-              <div className="w-full flex flex-col gap-3">
-                <Label>Address</Label>
-                <Input
-                  className="w-1/2"
-                  placeholder="Your address"
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                />
-                {error.address && (
-                  <p className="text-red-500">{error.address}</p>
-                )}
-              </div>
-              <div className="w-full flex flex-col gap-3">
-                <Label>Phone</Label>
-                <Input
-                  className="w-1/2"
-                  placeholder="Your phone"
+                  className="w-full sm:w-1/2"
+                  placeholder="Your phone number"
                   type="text"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                 />
-                {error.phone && <p className="text-red-500">{error.phone}</p>}
+                {error.phoneNumber && (
+                  <p className="text-red-500">{error.phoneNumber}</p>
+                )}
               </div>
             </div>
           </div>

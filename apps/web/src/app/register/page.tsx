@@ -62,21 +62,24 @@ const Register: React.FunctionComponent<IRegisterProps> = (props) => {
     onSuccess: (data) => {
       console.log(data);
       setIsLoading(true);
-
-      toast('Register success');
+      setIsDialogOpen(false);
       localStorage.setItem('token', data.result.token);
-      setTimeout(() => {
-        setUser({
-          username: data.result.username,
-          email: data.result.email,
-          identificationId: data.result.identificationId,
-        });
-        setIsLoading(false);
-        router.replace('/verify');
-      }, 5000);
+
+      toast('Register success', {
+        onClose: () => {
+          setUser({
+            username: data.result.username,
+            email: data.result.email,
+            identificationId: data.result.identificationId,
+          });
+          setIsLoading(false);
+          router.replace('/verify');
+        },
+      });
     },
     onError: (error: any) => {
       setIsLoading(false);
+      setIsDialogOpen(false);
       toast(error.response.data.error.errors[0].msg);
       console.log(error.response.data.error.errors[0]);
     },
@@ -165,9 +168,10 @@ const Register: React.FunctionComponent<IRegisterProps> = (props) => {
   };
 
   return (
-    <div className="w-full min-h-screen flex gap-20 px-10 pt-32 mb-10">
+    <div className="w-full min-h-screen flex flex-col gap-10 px-4 pt-20 mb-10 md:flex-row md:gap-20 md:px-10 md:pt-32">
+      {' '}
       <ToastContainer />
-      <div className="w-1/2 relative">
+      <div className="w-1/2 relative hidden md:block">
         <Image
           src="/man-wearing-t-shirt-gesturing.jpg"
           alt=""
@@ -187,17 +191,17 @@ const Register: React.FunctionComponent<IRegisterProps> = (props) => {
           </p>
         </div>
       </div>
-      <div className="w-1/2 p-10 flex flex-col">
-        <div className="w-full flex-col flex justify-center items-center gap-12">
-          <div className="w-full flex flex-col justify-center items-center gap-5">
-            <p className="text-4xl">Create your account</p>
-            <p className="text-slate-500">
+      <div className="w-full p-5 flex flex-col md:w-1/2 md:p-10">
+        <div className="w-full flex-col flex justify-center items-center gap-8 md:gap-12">
+          <div className="w-full flex flex-col justify-center items-center gap-3 md:gap-5">
+            <p className="text-2xl md:text-4xl">Create your account</p>
+            <p className="text-slate-500 text-sm text-center md:text-base">
               Let&apos;s get started with your personal profile before accessing
               our feature
             </p>
           </div>
-          <div className="w-full flex flex-col gap-10">
-            <div className="w-full flex flex-col px-10 gap-2">
+          <div className="w-full flex flex-col gap-6 md:gap-10">
+            <div className="w-full flex flex-col gap-2 px-4 md:px-10">
               <Label>Username</Label>
               <Input
                 placeholder="Enter your username"
@@ -206,27 +210,31 @@ const Register: React.FunctionComponent<IRegisterProps> = (props) => {
                 onChange={(e) => setUsername(e.target.value)}
               />
               {error.username && (
-                <p className="text-red-500">{error.username}</p>
+                <p className="text-red-500 text-xs md:text-base">
+                  {error.username}
+                </p>
               )}
             </div>
-            <div className="w-full flex flex-col px-10 gap-2">
+            <div className="w-full flex flex-col gap-2 px-4 md:px-10">
               <Label>Email</Label>
               <Input
                 placeholder="Enter your email"
                 type="text"
-                className=""
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              {error.email && <p className="text-red-500">{error.email}</p>}
+              {error.email && (
+                <p className="text-red-500 text-xs md:text-base">
+                  {error.email}
+                </p>
+              )}
             </div>
-            <div className="w-full flex flex-col px-10 gap-2">
+            <div className="w-full flex flex-col gap-2 px-4 md:px-10">
               <Label>Password</Label>
               <div className="relative">
                 <Input
                   placeholder="Enter your password"
                   type={isVisible ? 'text' : 'password'}
-                  className=""
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -245,16 +253,17 @@ const Register: React.FunctionComponent<IRegisterProps> = (props) => {
                 )}
               </div>
               {error.password && (
-                <p className="text-red-500">{error.password}</p>
+                <p className="text-red-500 text-xs md:text-base">
+                  {error.password}
+                </p>
               )}
             </div>
-            <div className="w-full flex flex-col px-10 gap-2 relative">
+            <div className="w-full flex flex-col gap-2 px-4 md:px-10">
               <Label>Confirm Password</Label>
               <div className="relative">
                 <Input
                   placeholder="Confirm your password"
                   type={isConfirmVisible ? 'text' : 'password'}
-                  className=""
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
@@ -273,28 +282,54 @@ const Register: React.FunctionComponent<IRegisterProps> = (props) => {
                 )}
               </div>
               {error.confirmPassword && (
-                <p className="text-red-500">{error.confirmPassword}</p>
-              )}
-              <div className="w-full flex gap-3 items-center">
-                <Checkbox
-                  checked={isChecked}
-                  onCheckedChange={(checked) => setIsChecked(checked === true)}
-                  /*Checkbox component from Shadcn uses a CheckedState type,
-                  which can be either true, false, or "indeterminate", 
-                  whereas you are expecting a boolean (true or false) in your state (isChecked).
-                  This ensures that only true or false is assigned to the state, 
-                  converting the value if it is "indeterminate" to false.
-                  */
-                />
-                <p>I agree to all terms, privacy policy and fees</p>
-              </div>
-              {error.checkbox && (
-                <p className="text-red-500">{error.checkbox}</p>
+                <p className="text-red-500 text-xs md:text-base">
+                  {error.confirmPassword}
+                </p>
               )}
             </div>
-            <div className="w-full flex flex-col px-10 gap-2">
+            <div className="w-full flex gap-3 items-center px-4 md:px-10">
+              <Checkbox
+                checked={isChecked}
+                onCheckedChange={(checked) => setIsChecked(checked === true)}
+              />
+              <p className="text-sm md:text-base">
+                I agree to all terms, privacy policy and fees
+              </p>
+            </div>
+            {error.checkbox && (
+              <p className="text-red-500 text-xs md:text-base px-4 md:px-10">
+                {error.checkbox}
+              </p>
+            )}
+            <div className="w-full flex flex-col gap-2 px-4 md:px-10">
               <Button onClick={handleClickButton}>
-                {isLoading ? 'Loading...' : 'Register'}
+                {mutation.isPending ? (
+                  <div className="flex items-center gap-2">
+                    <svg
+                      className="animate-spin h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <span>Loading...</span>
+                  </div>
+                ) : (
+                  'Register'
+                )}
               </Button>
               <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <AlertDialogContent>
@@ -316,7 +351,7 @@ const Register: React.FunctionComponent<IRegisterProps> = (props) => {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              <p>
+              <p className="text-center">
                 Already have an account?{' '}
                 <Link className="text-green-300" href="/login">
                   Login

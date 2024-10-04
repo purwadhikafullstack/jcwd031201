@@ -133,7 +133,8 @@ exports.Prisma.ClientScalarFieldEnum = {
   email: 'email',
   createdAt: 'createdAt',
   clientCode: 'clientCode',
-  userId: 'userId'
+  userId: 'userId',
+  payId: 'payId'
 };
 
 exports.Prisma.InvoiceScalarFieldEnum = {
@@ -144,10 +145,12 @@ exports.Prisma.InvoiceScalarFieldEnum = {
   nextInvoiceDate: 'nextInvoiceDate',
   invoiceStatus: 'invoiceStatus',
   totalAmount: 'totalAmount',
+  recurringDays: 'recurringDays',
   createdAt: 'createdAt',
   subTotal: 'subTotal',
-  paymentOptId: 'paymentOptId',
-  userId: 'userId'
+  paymentId: 'paymentId',
+  userId: 'userId',
+  isDeleted: 'isDeleted'
 };
 
 exports.Prisma.InvoicedetailScalarFieldEnum = {
@@ -164,6 +167,7 @@ exports.Prisma.PaymentdetailsScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
   paymentOptId: 'paymentOptId',
+  paymentCode: 'paymentCode',
   bankAccount: 'bankAccount',
   accountNumber: 'accountNumber',
   accountName: 'accountName',
@@ -173,6 +177,12 @@ exports.Prisma.PaymentdetailsScalarFieldEnum = {
 exports.Prisma.PaymentoptionsScalarFieldEnum = {
   id: 'id',
   paymentType: 'paymentType',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.ClientpaymentScalarFieldEnum = {
+  id: 'id',
+  paymentMethod: 'paymentMethod',
   createdAt: 'createdAt'
 };
 
@@ -239,6 +249,17 @@ exports.paymentoptions_paymentType = exports.$Enums.paymentoptions_paymentType =
   BANK_TRANSFER: 'BANK_TRANSFER'
 };
 
+exports.paymentmethod = exports.$Enums.paymentmethod = {
+  GOPAY: 'GOPAY',
+  OVO: 'OVO',
+  DANA: 'DANA',
+  CREDIT_CARD: 'CREDIT_CARD',
+  COD: 'COD',
+  BANK_VA: 'BANK_VA',
+  BANK_TRANSFER: 'BANK_TRANSFER',
+  PAYLATER: 'PAYLATER'
+};
+
 exports.Prisma.ModelName = {
   category: 'category',
   client: 'client',
@@ -246,6 +267,7 @@ exports.Prisma.ModelName = {
   invoicedetail: 'invoicedetail',
   paymentdetails: 'paymentdetails',
   paymentoptions: 'paymentoptions',
+  clientpayment: 'clientpayment',
   product: 'product',
   user: 'user',
   userprofile: 'userprofile'

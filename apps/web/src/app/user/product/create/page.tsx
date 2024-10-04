@@ -74,10 +74,10 @@ const CreateProduct: React.FunctionComponent<ICreateProductProps> = (props) => {
     },
     onSuccess: (data) => {
       console.log(data);
-      toast('Create Product Success');
-      setTimeout(() => {
-        router.replace('/user/product');
-      }, 5000);
+      setIsDialogOpen(false);
+      toast('Create Product Success', {
+        onClose: () => router.replace('/user/product'),
+      });
     },
     onError: (error) => {
       console.log(error);
@@ -131,15 +131,17 @@ const CreateProduct: React.FunctionComponent<ICreateProductProps> = (props) => {
   return (
     <div className="w-full">
       <ToastContainer />
-      <div className="flex my-28 mx-10 rounded-xl border-slate-500 border border-solid">
+      <div className="flex flex-col md:flex-row mt-28 mb-10 mx-5 md:mx-10 rounded-xl border-slate-500 border border-solid">
         <Sidebar />
         <div className="flex-1">
           <div className="w-full flex flex-col">
-            <div className="w-full flex justify-between border-b border-b-black border-b-solid p-5">
-              <div className="w-full flex items-center gap-5">
-                <p className="text-2xl font-bold">New Product</p>
+            <div className="w-full flex flex-col gap-5 md:flex-row md:items-center md:justify-between border-b border-b-black border-b-solid p-5">
+              <div className="w-full flex justify-center md:justify-start items-center gap-5">
+                <p className="text-2xl font-bold md:text-start text-center">
+                  New Product
+                </p>
               </div>
-              <div className="">
+              <div className="w-full flex justify-center items-center md:w-auto md:justify-start">
                 <Button
                   onClick={handleClickButton}
                   className="bg-green-400 text-white hover:bg-green-400"
@@ -173,7 +175,7 @@ const CreateProduct: React.FunctionComponent<ICreateProductProps> = (props) => {
                 <Label>Product Name</Label>
                 <Input
                   type="text"
-                  className="w-1/2"
+                  className="md:w-1/2 w-full"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -182,7 +184,7 @@ const CreateProduct: React.FunctionComponent<ICreateProductProps> = (props) => {
               <div className="w-full flex flex-col gap-2">
                 <Label>Product Description</Label>
                 <Textarea
-                  className="w-1/2"
+                  className="md:w-1/2 w-full"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
@@ -191,7 +193,7 @@ const CreateProduct: React.FunctionComponent<ICreateProductProps> = (props) => {
                 <Label>Product Price</Label>
                 <Input
                   type="number"
-                  className="w-1/2"
+                  className="md:w-1/2 w-full"
                   value={price}
                   onChange={(e) => setPrice(parseInt(e.target.value))}
                 />
@@ -203,7 +205,7 @@ const CreateProduct: React.FunctionComponent<ICreateProductProps> = (props) => {
                   value={categoryName}
                   onValueChange={(e) => setCategoryName(e)}
                 >
-                  <SelectTrigger className="w-1/2">
+                  <SelectTrigger className="md:w-1/2 w-full">
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent>

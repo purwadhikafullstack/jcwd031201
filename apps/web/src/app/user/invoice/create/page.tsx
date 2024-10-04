@@ -1,12 +1,10 @@
 'use client';
 import Sidebar from '@/components/Sidebar';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
-  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -22,30 +20,503 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { MdOutlineDelete } from 'react-icons/md';
+import apiCall from '@/helper/apiCall';
+import useClient from '@/helper/useClient';
+import usePayment from '@/helper/usePayment';
+import useProduct from '@/helper/useProduct';
+import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { toast, ToastContainer } from 'react-toastify';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import usePaymentDetails from '@/helper/usePaymentDetails';
+import 'react-toastify/dist/ReactToastify.css';
+import { ProductDetails, ProductType } from '../type';
+import usePaymentMethod from '@/helper/usePaymentMethod';
+import Preview from './Preview';
 
 interface ICreateInvoiceProps {}
+
+const ClientDetailsForm = (
+  label: string,
+  placeholder: string,
+  setValue: (e: string) => void,
+) => {
+  return (
+    <div className="flex flex-col gap-2">
+      <Label>{label}</Label>
+      <Input
+        placeholder={placeholder}
+        onChange={(e) => setValue(e.target.value)}
+      />
+    </div>
+  );
+};
+
+const ProductForm = ({
+  index,
+  handleProductChange,
+  products,
+  selectedProduct,
+  removeProduct,
+}: {
+  index: number;
+  handleProductChange: (
+    index: number,
+    key: string,
+    value: string | number,
+  ) => void;
+  products: ProductDetails[];
+  selectedProduct: ProductType | null;
+  removeProduct: (index: number) => void;
+}) => (
+  <div className="w-full flex items-center gap-5">
+    <div className="w-1/2 flex flex-col gap-3">
+      <Label>Product Name</Label>
+      <Select
+        onValueChange={(value) => {
+          const selectedProd = products.find((p) => p.name === value);
+          handleProductChange(index, 'name', value);
+          if (selectedProd) {
+            handleProductChange(index, 'priceUnit', selectedProd.price);
+          }
+        }}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder="Select product" />
+        </SelectTrigger>
+        <SelectContent>
+          {products && products.length > 0 ? (
+            products.map((product) => (
+              <SelectItem key={product.productCode} value={product.productCode}>
+                {product.name}
+              </SelectItem>
+            ))
+          ) : (
+            <p>You have no product</p>
+          )}
+        </SelectContent>
+      </Select>
+    </div>
+
+    {/* Quantity Input */}
+    <div className="flex flex-col gap-3">
+      <Label>Quantity</Label>
+      <Input
+        type="number"
+        placeholder="quantity"
+        onChange={(e) => {
+          const quantity = parseInt(e.target.value, 10);
+          handleProductChange(index, 'quantity', quantity);
+
+          // Calculate total dynamically when quantity changes
+          const priceUnit = selectedProduct?.priceUnit || 0;
+          handleProductChange(index, 'total', priceUnit * quantity);
+        }}
+      />
+    </div>
+    <div className="flex flex-col gap-3">
+      <Label>Price Unit</Label>
+      <Input
+        type="number"
+        value={selectedProduct?.priceUnit || ''}
+        placeholder="price unit"
+        readOnly
+      />
+    </div>
+    <div className="flex flex-col gap-3">
+      <Label>Total</Label>
+      <Input
+        type="number"
+        value={selectedProduct?.total || 0}
+        placeholder="total"
+        readOnly
+      />
+    </div>
+    <div className="mt-7 cursor-pointer">
+      <MdOutlineDelete size={30} onClick={() => removeProduct(index)} />
+    </div>
+  </div>
+);
 
 const CreateInvoice: React.FunctionComponent<ICreateInvoiceProps> = (props) => {
   const [date, setDate] = React.useState<Date | null>(null);
   const [checked, setChecked] = React.useState<boolean>(false);
   const [clientVal, setClientVal] = React.useState<string>('');
+  const [paymentVal, setPaymentVal] = React.useState<string>('');
+  const [clientName, setClientName] = React.useState<string>('');
+  const [clientPay, setClientPay] = React.useState<string>('');
+  const token = localStorage.getItem('token') || '';
+  const {
+    data: products,
+    isError: productError,
+    isLoading: productLoading,
+  } = useProduct(token);
+  const {
+    data: details,
+    isError: detailsError,
+    isLoading: detailsLoading,
+  } = usePaymentDetails(token);
+  const [clientAddress, setClientAddress] = React.useState<string>('');
+  const [clientPhone, setClientPhone] = React.useState<string>('');
+  const [clientEmail, setClientEmail] = React.useState<string>('');
+  const [bankAccount, setBankAccount] = React.useState<string>('');
+  const [accountName, setAccountName] = React.useState<string>('');
+  const [accountNumber, setAccountNumber] = React.useState<string>('');
+  const [reccuringDate, setRecurringDate] = React.useState<string>('');
+  const [paymentTypeVal, setPaymentTypeVal] = React.useState<string>('');
+  const [invoiceStatus, setInvoiceStatus] = React.useState<string>('');
+  const [isDialogOpen, setIsDialogOpen] = React.useState<boolean>(false);
+  const [invoiceProducts, setInvoiceProducts] = React.useState<ProductType[]>([
+    { name: '', quantity: 0, priceUnit: 0, total: 0 },
+  ]);
+  const [selectedProducts, setSelectedProducts] = React.useState<
+    (ProductDetails | null)[]
+  >(products ? products?.result.map(() => null) : []);
+  const [error, setError] = React.useState<{
+    [key: string]: string | number | null | [];
+  }>({
+    clientVal: '',
+    date: null,
+    paymentTypeVal: '',
+    paymentVal: '',
+    recurringDate: '',
+    invoiceStatus: '',
+    invoiceProducts: '',
+    clientName: '',
+    clientEmail: '',
+    clientAddress: '',
+    clientPhone: '',
+    accountName: '',
+    accountNumber: '',
+    bankAccount: '',
+    clientPay: '',
+  });
   const router = useRouter();
+
+  let totalAmount = 0;
+  let subTotal = 0;
+
+  for (let i = 0; i < invoiceProducts.length; i++) {
+    const product = invoiceProducts[i];
+    const qty = product.quantity;
+    totalAmount += product.priceUnit * qty;
+    subTotal += product.priceUnit * qty;
+  }
+
+  const addNewProduct = () => {
+    setInvoiceProducts([
+      ...invoiceProducts,
+      { name: '', quantity: 1, priceUnit: 0, total: 0 },
+    ]);
+  };
+
+  const removeProduct = (index: number) => {
+    setInvoiceProducts((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // const handleProductChange = (
+  //   index: number,
+  //   key: string,
+  //   value: string | number,
+  // ) => {
+  //   const updatedProducts = [...invoiceProducts];
+
+  //   // Update the specific field (name, quantity, priceUnit, total)
+  //   updatedProducts[index] = { ...updatedProducts[index], [key]: value };
+
+  //   if (key === 'name') {
+  //     // Handle product selection and price update
+  //     const selectedProd = products?.result.find(
+  //       (p: any) => p.productCode === value,
+  //     );
+  //     console.log(selectedProd);
+
+  //     const updatedSelectedProducts = [...selectedProducts];
+  //     updatedSelectedProducts[index] = selectedProd;
+
+  //     updatedProducts[index].productName = selectedProd.name || '';
+  //     updatedProducts[index].priceUnit = selectedProd?.price || 0;
+  //     updatedProducts[index].total =
+  //       selectedProd?.price * updatedProducts[index].quantity || 0;
+
+  //     setSelectedProducts(updatedSelectedProducts);
+  //     setInvoiceProducts(updatedProducts);
+  //   }
+
+  //   if (key === 'quantity') {
+  //     const selectedProd =
+  //       products?.result.find((p: any) => p.productCode === value) || null;
+  //     console.log('select' + selectedProd);
+
+  //     const updatedSelectedProducts = [...selectedProducts];
+  //     console.log('update' + updatedSelectedProducts);
+
+  //     updatedSelectedProducts[index] = selectedProd;
+
+  //     updatedProducts[index].productName = selectedProd.name || '';
+  //     updatedProducts[index].priceUnit = selectedProd?.price || 0;
+  //     updatedProducts[index].total =
+  //       selectedProd?.price * updatedProducts[index].quantity || 0;
+  //     // Calculate total when quantity changes
+  //     const priceUnit = updatedProducts[index].priceUnit || 0;
+  //     const quantity = parseInt(value as string, 10) || 0;
+  //     const quantityUpdated = parseInt(value as string, 10) || 0;
+
+  //     invoiceProducts[index].quantity = quantity;
+  //     updatedProducts[index].quantity = quantity;
+  //     console.log(quantity);
+
+  //     updatedProducts[index].total = priceUnit * quantity;
+  //     setInvoiceProducts(updatedProducts);
+  //     console.log(updatedProducts);
+  //     console.log(invoiceProducts);
+
+  //     // Ensure quantity and total are updated
+  //   } else {
+  //     setInvoiceProducts(updatedProducts); // Update for other fields
+  //   }
+  // };
+
+  const mutation = useMutation({
+    mutationFn: async () => {
+      const productCodes = invoiceProducts.map((product) => product.name);
+      console.log(productCodes);
+
+      const qtys = invoiceProducts.map((product) => product.quantity);
+      console.log(qtys);
+
+      const { data } = await apiCall.post(
+        '/api/invoice',
+        {
+          name: clientName,
+          address: clientAddress,
+          phone: clientPhone,
+          email: clientEmail,
+          date,
+          paymentType: paymentTypeVal,
+          paymentCode: paymentVal,
+          bankAccount,
+          accountName,
+          accountNumber,
+          addRecurringDate: reccuringDate,
+          invoiceStatus,
+          clientCode: clientVal,
+          clientPayment: clientPay,
+          recurringDays: Number(reccuringDate),
+          productCodes,
+          qtys,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      return data;
+    },
+    onSuccess: (data) => {
+      console.log(data);
+      setChecked(false);
+      setIsDialogOpen(false);
+      toast('Create Invoice Success', {
+        onClose: () => {
+          router.replace('/user/invoice');
+        },
+      });
+    },
+    onError: (error: any) => {
+      toast('Create Invoice Failed');
+      console.log(error);
+    },
+  });
+
+  const handleCreateInvoice = () => {
+    mutation.mutate();
+  };
+
+  const formValidation = () => {
+    setError({
+      clientVal: '',
+      date: null,
+      paymentTypeVal: '',
+      paymentVal: '',
+      recurringDate: '',
+      invoiceStatus: '',
+      invoiceProducts: '',
+      clientName: '',
+      clientEmail: '',
+      clientAddress: '',
+      clientPhone: '',
+      accountName: '',
+      accountNumber: '',
+      bankAccount: '',
+    });
+
+    let isValid = true;
+
+    if (!date) {
+      setError((prev) => ({ ...prev, date: 'Please fill the due date' }));
+      isValid = false;
+    }
+
+    // if (!paymentTypeVal) {
+    //   setError((prev) => ({
+    //     ...prev,
+    //     paymentTypeVal: 'Please select payment type',
+    //   }));
+    //   isValid = false;
+    // }
+
+    if (!reccuringDate) {
+      setError((prev) => ({
+        ...prev,
+        reccuringDate: 'Please select reccuring date',
+      }));
+      isValid = false;
+    }
+
+    if (!invoiceStatus) {
+      setError((prev) => ({
+        ...prev,
+        invoiceStatus: 'Please choose invoice status',
+      }));
+    }
+
+    if (!clientPay) {
+      setError((prev) => ({
+        ...prev,
+        clientPay: 'Please choose payment method',
+      }));
+    }
+
+    if (
+      !invoiceProducts.length ||
+      invoiceProducts.some(
+        (product) =>
+          !product.name || product.quantity <= 0 || product.priceUnit < 0,
+      )
+    ) {
+      setError((prev) => ({
+        ...prev,
+        invoiceProducts:
+          'Invoice products must not be empty and each product must have a valid name, quantity (greater than 0), and price unit (not negative)',
+      }));
+      isValid = false;
+    }
+
+    if (!clientVal) {
+      setError((prev) => ({ ...prev, clientVal: 'Please select your client' }));
+      isValid = false;
+    }
+
+    if (clientVal === 'new') {
+      if (!clientAddress) {
+        setError((prev) => ({
+          ...prev,
+          clientAddress: 'Please fill the address',
+        }));
+        isValid = false;
+      }
+      if (!clientEmail) {
+        setError((prev) => ({ ...prev, clientEmail: 'Please fill the email' }));
+        isValid = false;
+      }
+      if (!clientName) {
+        setError((prev) => ({ ...prev, clientName: 'Please fill the name' }));
+        isValid = false;
+      }
+      if (!clientPhone) {
+        setError((prev) => ({ ...prev, clientPhone: 'Please fill the phone' }));
+        isValid = false;
+      }
+    }
+
+    if (paymentTypeVal === 'BANK_TRANSFER') {
+      if (!bankAccount) {
+        setError((prev) => ({
+          ...prev,
+          bankAccount: 'Please fill your bank account',
+        }));
+        isValid = false;
+      }
+      if (!accountNumber) {
+        setError((prev) => ({
+          ...prev,
+          accountNumber: 'Please fill your account number',
+        }));
+        isValid = false;
+      }
+      if (!accountName) {
+        setError((prev) => ({
+          ...prev,
+          accountName: 'Please fill your account name',
+        }));
+        isValid = false;
+      }
+    }
+
+    if (!paymentVal) {
+      setError((prev) => ({
+        ...prev,
+        paymentVal: 'Please choose your payment method',
+      }));
+      isValid = false;
+    }
+
+    return isValid;
+  };
+
+  const handleClickButton = () => {
+    if (formValidation()) {
+      setIsDialogOpen(true);
+    }
+  };
+
+  const { data: client, isError, isLoading } = useClient(token);
+  const {
+    data: method,
+    isError: methodError,
+    isLoading: methodLoading,
+  } = usePaymentMethod();
+  const {
+    data: payment,
+    isError: payError,
+    isLoading: payLoading,
+  } = usePayment();
+
+  React.useEffect(() => {
+    console.log(client);
+
+    console.log(details);
+
+    console.log(payment);
+  }, [client, products, date, payment, details]);
   return (
     <div className="w-full">
-      <div className="flex my-28 mx-10 rounded-xl border-slate-500 border border-solid">
+      <ToastContainer />
+      <div className="flex flex-col md:flex-row mt-28 mb-10 mx-5 md:mx-10 rounded-xl border-slate-500 border border-solid">
         <Sidebar />
         <div className="flex-1">
           <div className="w-full flex flex-col">
-            <div className="w-full flex justify-between border-b border-b-black border-b-solid p-5">
-              <div className="w-full flex items-center gap-5">
-                <p className="text-2xl font-bold">New Invoice</p>
-                <p className="text-xl">|</p>
+            <div className="w-full flex flex-col gap-5 md:flex-row md:items-center md:justify-between border-b border-b-black border-b-solid p-5">
+              <div className="w-full flex justify-between md:justify-start items-center gap-5">
+                <p className="md:text-2xl text-lg font-bold">New Invoice</p>
+                <p className="text-xl hidden md:block">|</p>
                 <div className="flex items-center gap-3">
-                  <p className="">Show Preview</p>
+                  <p>Show Preview</p>
                   <Switch
                     checked={checked}
                     onCheckedChange={setChecked}
@@ -64,12 +535,35 @@ const CreateInvoice: React.FunctionComponent<ICreateInvoiceProps> = (props) => {
                 >
                   Save as Draft
                 </Button>
-                <Button className="bg-green-400 text-white hover:bg-green-400">
+                <Button
+                  onClick={handleClickButton}
+                  className="bg-green-400 text-white hover:bg-green-400"
+                >
                   Create Invoice
                 </Button>
+                <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        Are you sure you want to create invoice?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Make sure the informations are correct.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="bg-red-500 text-white">
+                        Cancel
+                      </AlertDialogCancel>
+                      <AlertDialogAction onClick={handleCreateInvoice}>
+                        Create Invoice
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
-            <div className="w-full p-5 flex gap-5">
+            <div className="w-full p-5 flex gap-5 md:flex-row flex-col ">
               <div className="w-full flex flex-col gap-5 border-solid border border-slate-300 rounded-lg p-5">
                 <div className="w-full flex flex-col gap-3">
                   <p>Invoice Details</p>
@@ -82,44 +576,84 @@ const CreateInvoice: React.FunctionComponent<ICreateInvoiceProps> = (props) => {
                       <SelectValue placeholder="Select Client" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={'client'}>Ardi Utama</SelectItem>
-                      <SelectItem value={'new'}>+ Add new client</SelectItem>
+                      {client ? (
+                        <>
+                          <SelectItem value={'new'}>
+                            + Add new client
+                          </SelectItem>
+                          {client.result.map((c: any) => (
+                            <SelectItem key={c.id} value={c.clientCode}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </>
+                      ) : (
+                        <SelectItem value={'new'}>+ Add new client</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
+                  {error.clientVal && (
+                    <p className="text-red-500">{error.clientVal}</p>
+                  )}
                   {clientVal === 'new' && (
                     <div className="flex flex-col gap-5">
                       <p className="">Client&apos;s details</p>
+                      {ClientDetailsForm('Name', 'Enter name', (value) =>
+                        setClientName(value),
+                      )}
+                      {error.clientName && (
+                        <p className="text-red-500">{error.clientName}</p>
+                      )}
+                      {ClientDetailsForm('Address', 'Enter address', (value) =>
+                        setClientAddress(value),
+                      )}
+                      {error.clientAddress && (
+                        <p className="text-red-500">{error.clientAddress}</p>
+                      )}
+                      {ClientDetailsForm('Phone', 'Enter phone', (value) =>
+                        setClientPhone(value),
+                      )}
+                      {error.clientPhone && (
+                        <p className="text-red-500">{error.clientPhone}</p>
+                      )}
+                      {ClientDetailsForm('Email', 'Enter email', (value) =>
+                        setClientEmail(value),
+                      )}
+                      {error.clientEmail && (
+                        <p className="text-red-500">{error.clientEmail}</p>
+                      )}
                       <div className="flex flex-col gap-2">
-                        <Label>Name</Label>
-                        <Input placeholder="Client's name" />
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Label>Address</Label>
-                        <Input placeholder="Client's address" />
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Label>Phone</Label>
-                        <Input placeholder="Client's phone" />
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Label>Email</Label>
-                        <Input placeholder="Client's email" />
+                        <Label>Payment Method</Label>
+                        <Select onValueChange={(e) => setClientPay(e)}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select payment" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {method.result &&
+                              method.result.map((e: any, i: number) => (
+                                <SelectItem key={i} value={e.paymentMethod}>
+                                  {e.paymentMethod}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   )}
                 </div>
-                <div className="w-full flex items-center justify-between">
-                  <div className="flex flex-col gap-3">
+                <div className="w-full flex items-center md:flex-row flex-col md:justify-between gap-5">
+                  <div className="md:w-auto w-full flex flex-col gap-3">
                     <Label>Due Date</Label>
                     <DatePicker
                       selected={date}
                       onChange={(date) => setDate(date)}
-                      className=" border-slate-200 shadow-sm border border-solid rounded-md p-1"
+                      className="w-full border-slate-200 shadow-sm border border-solid rounded-md p-1"
                     />
+                    {error.date && <p className="text-red-500">{error.date}</p>}
                   </div>
-                  <div className="w-1/4 flex flex-col gap-3">
+                  <div className="md:w-1/4 w-full flex flex-col gap-3">
                     <Label>Status</Label>
-                    <Select>
+                    <Select onValueChange={(e) => setInvoiceStatus(e)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select status" />
                       </SelectTrigger>
@@ -129,119 +663,266 @@ const CreateInvoice: React.FunctionComponent<ICreateInvoiceProps> = (props) => {
                         <SelectItem value="OVERDUE">OVERDUE</SelectItem>
                       </SelectContent>
                     </Select>
+                    {error.invoiceStatus && (
+                      <p className="text-red-500">{error.invoiceStatus}</p>
+                    )}
                   </div>
-                  <div className="flex flex-col gap-3">
+                  <div className="md:w-auto w-full flex flex-col gap-3">
                     <Label>Recurring Date</Label>
-                    <Select>
+                    <Select onValueChange={(e) => setRecurringDate(e)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select days" />
                       </SelectTrigger>
                       <SelectContent className="">
+                        <SelectItem value="2">2</SelectItem>
                         <SelectItem value="7">7</SelectItem>
                         <SelectItem value="14">14</SelectItem>
                         <SelectItem value="21">21</SelectItem>
                         <SelectItem value="30">30</SelectItem>
                       </SelectContent>
                     </Select>
+                    {error.reccuringDate && (
+                      <p className="text-red-500">{error.reccuringDate}</p>
+                    )}
                   </div>
                 </div>
                 <div className="w-full flex flex-col gap-3">
                   <p>Invoice Product</p>
                   <div className="bg-slate-200 h-0.5 w-full"></div>
                 </div>
-                <div className="w-full flex items-center gap-5">
-                  <div className="w-full flex flex-col gap-3">
-                    <Label>Product Name</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select product" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="product">Keyboard</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    <Label>Quantity</Label>
-                    <Input type="number" placeholder="quantity" />
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    <Label>Price Unit</Label>
-                    <Input type="number" placeholder="price unit" />
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    <Label>Total</Label>
-                    <Input type="number" placeholder="total" />
-                  </div>
+                {invoiceProducts.map((e: any, i: number) => (
+                  <React.Fragment key={i}>
+                    {invoiceProducts.map((e, i) => (
+                      <div
+                        key={i}
+                        className="w-full md:flex-row flex-col flex items-center gap-5"
+                      >
+                        <div className="w-full flex flex-col gap-3">
+                          <Label>Product Name</Label>
+                          <Select
+                            value={e.name || ''}
+                            onValueChange={(value) => {
+                              const updatedProducts = [...invoiceProducts];
+
+                              const selectedProduct = products.result.find(
+                                (product: any) => product.productCode === value,
+                              );
+                              console.log(selectedProduct);
+                              updatedProducts[i] = {
+                                ...updatedProducts[i],
+                                name: value,
+                                priceUnit: selectedProduct
+                                  ? selectedProduct.price
+                                  : 0, // Step to update priceUnit
+                                total:
+                                  updatedProducts[i].quantity ||
+                                  0 *
+                                    (selectedProduct
+                                      ? selectedProduct.price
+                                      : 0), // Update priceTotal as well
+
+                                product: {
+                                  name: selectedProduct.name,
+                                },
+                              };
+                              console.log(updatedProducts);
+
+                              setInvoiceProducts(updatedProducts);
+                              console.log(invoiceProducts);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select product" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {products && products.result.length > 0 ? (
+                                products.result.map((product: any) => (
+                                  <SelectItem
+                                    key={product.productCode}
+                                    value={product.productCode}
+                                  >
+                                    {product.name}
+                                  </SelectItem>
+                                ))
+                              ) : (
+                                <p>You have no product</p>
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="md:w-auto w-full flex flex-col gap-3">
+                          <Label>Quantity</Label>
+                          <Input
+                            value={e.quantity ?? 1}
+                            onChange={(ev) => {
+                              const updatedProducts = [...invoiceProducts];
+                              updatedProducts[i].quantity = parseInt(
+                                ev.target.value,
+                                10,
+                              );
+                              updatedProducts[i].total =
+                                updatedProducts[i].quantity *
+                                updatedProducts[i].priceUnit;
+                              setInvoiceProducts(updatedProducts);
+                            }}
+                            type="number"
+                            placeholder="quantity"
+                          />
+                        </div>
+                        <div className="md:w-auto w-full flex flex-col gap-3">
+                          <Label>Price Unit</Label>
+                          <Input
+                            value={e.priceUnit}
+                            onChange={(ev) => {
+                              const updatedProducts = [...invoiceProducts];
+                              updatedProducts[i].priceUnit = parseFloat(
+                                ev.target.value,
+                              );
+                              updatedProducts[i].total =
+                                updatedProducts[i].quantity ||
+                                0 * updatedProducts[i].priceUnit;
+                              setInvoiceProducts(updatedProducts);
+                            }}
+                            type="number"
+                            placeholder="price unit"
+                          />
+                        </div>
+                        <div className="md:w-auto w-full flex flex-col gap-3">
+                          <Label>Total</Label>
+                          <Input
+                            type="number"
+                            value={e.total}
+                            placeholder="total"
+                            readOnly
+                          />
+                        </div>
+                        <div className="md:mt-7 cursor-pointer">
+                          <MdOutlineDelete
+                            size={30}
+                            onClick={() => removeProduct(i)}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </React.Fragment>
+                ))}
+                {error.invoiceProducts && (
+                  <p className="text-red-500">{error.invoiceProducts}</p>
+                )}
+                <div className="w-auto">
+                  <p
+                    onClick={addNewProduct}
+                    className="w-24 underline text-green-700 cursor-pointer"
+                  >
+                    + Add item
+                  </p>
                 </div>
-                <div className="w-full flex items-center gap-2 cursor-pointer">
-                  <p className="text-green-700">+</p>
-                  <p className="underline text-green-700">Add item</p>
+                <div className="w-full flex flex-col gap-3">
+                  <p>Payment Method</p>
+                  <div className="bg-slate-200 h-0.5 w-full"></div>
+                </div>
+                <div className="w-full flex flex-col gap-3">
+                  <Select onValueChange={(e) => setPaymentVal(e)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Payment Method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {details ? (
+                        <>
+                          <SelectItem value={'new'}>
+                            + Add new payment method
+                          </SelectItem>
+                          {details.result.map((e: any, i: number) => (
+                            <React.Fragment key={i}>
+                              <SelectItem value={e.paymentCode}>
+                                {e.accountName}
+                              </SelectItem>
+                            </React.Fragment>
+                          ))}
+                        </>
+                      ) : (
+                        <SelectItem value={'new'}>
+                          + Add new payment method
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {error.paymentVal && (
+                    <p className="text-red-500">{error.paymentVal}</p>
+                  )}
+                  {paymentVal === 'new' && (
+                    <div className="flex flex-col gap-5">
+                      <p>Payment Type</p>
+                      <Select onValueChange={(e) => setPaymentTypeVal(e)}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Payment Type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {payment.result.map((e: any, i: number) => (
+                            <SelectItem key={i} value={e.paymentType}>
+                              {e.paymentType}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {paymentTypeVal === 'BANK_TRANSFER' && (
+                        <div className="flex flex-col gap-5">
+                          <p className="">Payment Details</p>
+                          <div className="flex flex-col gap-2">
+                            <Label>Bank Account</Label>
+                            <Input
+                              placeholder="Bank account"
+                              onChange={(e) => setBankAccount(e.target.value)}
+                            />
+                            {error.bankAccount && (
+                              <p className="text-red-500">
+                                {error.bankAccount}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Label>Account Number</Label>
+                            <Input
+                              placeholder="Account Number"
+                              onChange={(e) => setAccountNumber(e.target.value)}
+                            />
+                            {error.accountNumber && (
+                              <p className="text-red-500">
+                                {error.accountNumber}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Label>Account Name</Label>
+                            <Input
+                              placeholder="Account name"
+                              onChange={(e) => setAccountName(e.target.value)}
+                            />
+                            {error.accountName && (
+                              <p className="text-red-500">
+                                {error.accountName}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               {checked && (
-                <div className="w-full flex flex-col gap-5 border-solid bg-slate-100 border border-slate-300 rounded-lg p-5">
-                  <p>Preview</p>
-                  <div className="w-full p-5 bg-white flex flex-col gap-3 border-solid border border-black rounded-lg">
-                    <div className="w-full flex justify-between items-center">
-                      <div className="flex flex-col">
-                        <p className="text-xl font-bold">Invoice</p>
-                        <p>Invoice Code INV/01233/123130</p>
-                      </div>
-                      <div>
-                        <p>PT. Berjaya Berjangka</p>
-                      </div>
-                    </div>
-                    <div className="w-full h-0.5 bg-slate-200"></div>
-                    <div className="w-full flex flex-col">
-                      <p>Client: Ardi Utama</p>
-                      <p>Address: Jl. Nangka No.50</p>
-                      <p>Phone: 0812345321</p>
-                      <p>Email: 0812345321</p>
-                    </div>
-                    <div className="w-full">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>No</TableHead>
-                            <TableHead>Item</TableHead>
-                            <TableHead>Quantity</TableHead>
-                            <TableHead>Price</TableHead>
-                            <TableHead>Total</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          <TableRow>
-                            <TableCell>1</TableCell>
-                            <TableCell>Keyboard</TableCell>
-                            <TableCell>3</TableCell>
-                            <TableCell>Rp 150.000</TableCell>
-                            <TableCell>Rp 450.000</TableCell>
-                          </TableRow>
-                          <TableRow>
-                            <TableCell>2</TableCell>
-                            <TableCell>Mouse</TableCell>
-                            <TableCell>1</TableCell>
-                            <TableCell>Rp 150.000</TableCell>
-                            <TableCell>Rp 150.000</TableCell>
-                          </TableRow>
-                        </TableBody>
-                        <TableFooter>
-                          <TableRow>
-                            <TableCell colSpan={4}>Total</TableCell>
-                            <TableCell>Rp 600.000</TableCell>
-                          </TableRow>
-                        </TableFooter>
-                      </Table>
-                    </div>
-                    <div className="w-full flex flex-col">
-                      <p>Payment Information:</p>
-                      <p>Bank Account: BCA</p>
-                      <p>Account Number: 23453242</p>
-                      <p>Account Name: PT. Berjaya Berjangka</p>
-                    </div>
-                  </div>
-                </div>
+                <Preview
+                  clientName={clientName}
+                  clientAddress={clientAddress}
+                  clientPhone={clientPhone}
+                  clientEmail={clientEmail}
+                  totalAmount={totalAmount}
+                  bankAccount={details?.result[0].bankAccount}
+                  accountNumber={details?.result[0].accountNumber}
+                  products={invoiceProducts}
+                  accountName={details?.result[0].accountName}
+                  paymentMethod={clientPay}
+                />
               )}
             </div>
           </div>

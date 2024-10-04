@@ -14,17 +14,40 @@ export class InvoiceRouter {
   }
 
   private initializeRoutes(): void {
+    this.router.patch(
+      '/delete',
+      verifyToken,
+      this.invoiceController.deleteInvoice,
+    );
+
+    this.router.post(
+      '/sendinvoice',
+      verifyToken,
+      this.invoiceController.sendInvoice,
+    );
+
     this.router.post(
       '',
-      createInvoiceValidation,
+      // createInvoiceValidation,
       verifyToken,
       this.invoiceController.createInvoice,
     );
     this.router.get('', verifyToken, this.invoiceController.getInvoice);
+    this.router.get(
+      '/:invoiceCode',
+      verifyToken,
+      this.invoiceController.getInvoiceDetails,
+    );
     this.router.patch(
       '/:invoiceCode',
       verifyToken,
       this.invoiceController.updateInvoice,
+    );
+
+    this.router.post(
+      '/download',
+      verifyToken,
+      this.invoiceController.downloadInvoice,
     );
   }
 

@@ -25,6 +25,7 @@ import { useRouter } from 'next/navigation';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import userAuth from '@/hoc/userGuard';
 import { UserContext } from '@/contexts/UserContext';
+import 'react-toastify/dist/ReactToastify.css';
 
 interface ILoginProps {}
 
@@ -51,21 +52,24 @@ const Login: React.FunctionComponent<ILoginProps> = (props) => {
     },
     onSuccess: (data) => {
       setIsLoading(true);
+      setIsDialogOpen(false);
       console.log(data);
       localStorage.setItem('token', data.result.token);
-      toast('Login Success');
-      setTimeout(() => {
-        setUser({
-          email: data.result.email,
-          username: data.result.username,
-          identificationId: data.result.identificationId,
-        });
-        setIsLoading(false);
-        router.replace('/user/profile');
-      }, 5000);
+      toast('Login Success', {
+        onClose: () => {
+          setUser({
+            email: data.result.email,
+            username: data.result.username,
+            identificationId: data.result.identificationId,
+          });
+          setIsLoading(false);
+          router.replace('/user/profile');
+        },
+      });
     },
     onError: (error: any) => {
       setIsLoading(false);
+      setIsDialogOpen(false);
       toast(error.response.data.message);
       console.log(error);
     },
@@ -118,19 +122,21 @@ const Login: React.FunctionComponent<ILoginProps> = (props) => {
     }
   };
   return (
-    <div className="w-full min-h-screen flex gap-20 px-10 pt-32 mb-10">
+    <div className="w-full min-h-screen flex flex-col sm:flex-row gap-10 sm:gap-20 px-4 sm:px-10 pt-16 sm:pt-32 mb-10">
       <ToastContainer />
-      <div className="w-1/2 p-10 flex flex-col">
-        <div className="w-full flex-col flex justify-center items-center gap-12">
-          <div className="w-full flex flex-col justify-center items-center gap-5">
-            <p className="text-4xl">Login to your account</p>
-            <p className="text-slate-500">
+      {/* Left side - Form */}
+      <div className="w-full sm:w-1/2 p-5 sm:p-10 flex flex-col">
+        <div className="w-full flex flex-col justify-center items-center gap-6 sm:gap-12">
+          <div className="w-full flex flex-col justify-center items-center gap-3 sm:gap-5">
+            <p className="text-2xl sm:text-4xl">Login to your account</p>
+            <p className="text-slate-500 text-center">
               Let&apos;s get started with your personal profile before accessing
               our feature
             </p>
           </div>
-          <div className="w-full flex flex-col gap-10">
-            <div className="w-full flex flex-col px-10 gap-2">
+          <div className="w-full flex flex-col gap-8 sm:gap-10">
+            {/* Username */}
+            <div className="w-full flex flex-col px-5 sm:px-10 gap-2">
               <Label>Username</Label>
               <Input
                 placeholder="Enter your username"
@@ -142,13 +148,14 @@ const Login: React.FunctionComponent<ILoginProps> = (props) => {
                 <p className="text-red-500">{error.username}</p>
               )}
             </div>
-            <div className="w-full flex flex-col px-10 gap-2">
+
+            {/* Password */}
+            <div className="w-full flex flex-col px-5 sm:px-10 gap-2">
               <Label>Password</Label>
               <div className="relative">
                 <Input
                   placeholder="Enter your password"
                   type={isVisible ? 'text' : 'password'}
-                  className=""
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -171,31 +178,48 @@ const Login: React.FunctionComponent<ILoginProps> = (props) => {
                 <div className="flex justify-between items-center">
                   <p className="text-red-500">{error.password}</p>
                   <p className="cursor-pointer">
-                    <Link
-                      href="/forgot-password"
-                      onClick={() => router.push('/forgot-password')}
-                    >
-                      Forgot Password?
-                    </Link>
+                    <Link href="/forgot-password">Forgot Password?</Link>
                   </p>
                 </div>
               ) : (
-                <div className="flex justify-end items-end">
+                <div className="flex justify-end">
                   <p className="cursor-pointer">
-                    {' '}
-                    <Link
-                      href="/forgot-password"
-                      onClick={() => router.push('/forgot-password')}
-                    >
-                      Forgot Password?
-                    </Link>
+                    <Link href="/forgot-password">Forgot Password?</Link>
                   </p>
                 </div>
               )}
             </div>
-            <div className="w-full flex flex-col px-10 gap-2">
+
+            {/* Login Button and AlertDialog */}
+            <div className="w-full flex flex-col px-5 sm:px-10 gap-2">
               <Button onClick={handleClickButton}>
-                {isLoading ? 'Loading...' : 'Login'}
+                {mutation.isPending ? (
+                  <div className="flex items-center gap-2">
+                    <svg
+                      className="animate-spin h-5 w-5 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    <span>Loading...</span>
+                  </div>
+                ) : (
+                  'Login'
+                )}
               </Button>
               <AlertDialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <AlertDialogContent>
@@ -217,7 +241,7 @@ const Login: React.FunctionComponent<ILoginProps> = (props) => {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              <p>
+              <p className="text-center">
                 Don&apos;t have an account?{' '}
                 <Link className="text-green-300" href="/register">
                   Register
@@ -227,7 +251,7 @@ const Login: React.FunctionComponent<ILoginProps> = (props) => {
           </div>
         </div>
       </div>
-      <div className="w-1/2 relative">
+      <div className="w-1/2 relative hidden md:block">
         <Image
           src="/login.jpg"
           alt=""

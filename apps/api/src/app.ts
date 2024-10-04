@@ -14,6 +14,11 @@ import { AuthRouter } from './routers/auth.router';
 import { ProfileRouter } from './routers/profile.router';
 import { ProductRouter } from './routers/product.router';
 import { InvoiceRouter } from './routers/invoice.router';
+import { ClientRouter } from './routers/client.router';
+import { PaymentRouter } from './routers/payment.router';
+import { startCronJobs } from './cron/recurringInvoices';
+import cron from 'node-cron';
+import { sendRecurringInvoices } from './services/recurringInvoiceService';
 
 export default class App {
   private app: Express;
@@ -60,6 +65,8 @@ export default class App {
     const profileRouter = new ProfileRouter();
     const productRouter = new ProductRouter();
     const invoiceRouter = new InvoiceRouter();
+    const clientRouter = new ClientRouter();
+    const paymentRouter = new PaymentRouter();
 
     this.app.get('/api', (req: Request, res: Response) => {
       res.send(`Hello, Purwadhika Student API!`);
@@ -69,11 +76,19 @@ export default class App {
     this.app.use('/api/profile', profileRouter.getRouter());
     this.app.use('/api/product', productRouter.getRouter());
     this.app.use('/api/invoice', invoiceRouter.getRouter());
+    this.app.use('/api/client', clientRouter.getRouter());
+    this.app.use('/api/payment', paymentRouter.getRouter());
   }
 
   public start(): void {
     this.app.listen(PORT, () => {
       console.log(`  ➜  [API] Local:   http://localhost:${PORT}/`);
+      // startCronJobs();
+
+      cron.schedule('0 0 * * *', async () => {
+        console.log('Running recurring');
+        await sendRecurringInvoices();
+      });
     });
   }
 }

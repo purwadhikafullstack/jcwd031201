@@ -113,6 +113,7 @@ export class ProductController {
         where: {
           ...searchResult,
           isDeleted: false,
+          userId: findUser.id,
         },
       });
 
